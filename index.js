@@ -1,4 +1,5 @@
 const { KEYGEN_ACCOUNT_ID } = process.env
+
 const fetch = require('node-fetch')
 const readline = require('readline')
 const chalk = require('chalk')
@@ -86,8 +87,18 @@ async function validateLicenseKey(key) {
 
   const {
     meta: validation,
-    data: license
+    data: license,
+    errors
   } = await getValidationResponse(key)
+  if (errors) {
+    const msgs = errors.map(e => `${e.title}: ${e.detail}`)
+    console.error(
+      chalk.red(`Request err: ${msgs}`)
+    )
+
+    process.exit(1)
+  }
+
   if (validation.valid) {
     setCachedValidationResponse(key, { validation, license })
   }
