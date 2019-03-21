@@ -1,4 +1,7 @@
-const { KEYGEN_ACCOUNT_ID } = process.env
+const {
+  KEYGEN_PUBLIC_KEY,
+  KEYGEN_ACCOUNT_ID
+} = process.env
 
 const fetch = require('node-fetch')
 const readline = require('readline')
@@ -30,19 +33,25 @@ function getCurrentCacheLocation(key) {
                     .update(`${days}:${key}`)
                     .digest('hex')
 
-  return `cache/${hash}.json`
+  return `cache/${hash}`
 }
 
 function getCachedValidationResponse(key) {
   const path = getCurrentCacheLocation(key)
   if (fs.existsSync(path)) {
-    const res = fs.readFileSync(path)
+    const contents = fs.readFileSync(path)
     console.log(
       chalk.gray(`Cache hit: ${key} (${path})`)
     )
 
     try {
-      return JSON.parse(res)
+      const [sig, encRes] = contents.toString().split(':')
+      const res = Buffer.from(encRes, 'base64').toString()
+
+      return {
+        res: JSON.parse(res),
+        sig,
+      }
     } catch (e) {
       console.error(
         chalk.red(`Cache err: ${e} (${key})`)
@@ -55,13 +64,16 @@ function getCachedValidationResponse(key) {
   return null
 }
 
-function setCachedValidationResponse(key, res) {
+function setCachedValidationResponse(key, sig, res) {
   const path = getCurrentCacheLocation(key)
   console.log(
     chalk.gray(`Cache set: ${key} (${path})`)
   )
 
-  return fs.writeFileSync(path, JSON.stringify(res))
+  const encRes = Buffer.from(JSON.stringify(res)).toString('base64')
+  const contents = `${sig}:${encRes}`
+
+  return fs.writeFileSync(path, contents)
 }
 
 async function getValidationResponse(key) {
@@ -76,7 +88,10 @@ async function getValidationResponse(key) {
     })
   })
 
-  return res.json()
+  return res.json().then(body => ({
+    sig: res.headers.get('X-Signature'),
+    res: body,
+  }))
 }
 
 async function validateLicenseKey(key) {
@@ -85,11 +100,8 @@ async function validateLicenseKey(key) {
     return cache
   }
 
-  const {
-    meta: validation,
-    data: license,
-    errors
-  } = await getValidationResponse(key)
+  const { res, sig } = await getValidationResponse(key)
+  const { meta, errors } = res
   if (errors) {
     const msgs = errors.map(e => `${e.title}: ${e.detail}`)
     console.error(
@@ -99,27 +111,47 @@ async function validateLicenseKey(key) {
     process.exit(1)
   }
 
-  if (validation.valid) {
-    setCachedValidationResponse(key, { validation, license })
+  if (meta.valid) {
+    setCachedValidationResponse(key, sig, res)
   }
 
-  return {
-    validation,
-    license
+  return { res, sig }
+}
+
+function verifyResponseSignature(res, sig) {
+  try {
+    const body = JSON.stringify(res)
+    const verifier = crypto.createVerify('sha256')
+    verifier.write(body)
+    verifier.end()
+
+    return verifier.verify(KEYGEN_PUBLIC_KEY, sig, 'base64')
+  } catch (e) {
+    return false
   }
 }
 
 async function main() {
   const key = await getLicenseKeyFromUser()
-  const { validation, license } = await validateLicenseKey(key)
+  const { res, sig } = await validateLicenseKey(key)
+  const ok = verifyResponseSignature(res, sig)
+  if (!ok) {
+    console.error(
+      chalk.red(`Signature verification failed! Cached data has been tampered with.`)
+    )
 
-  if (validation.valid) {
+    process.exit(1)
+  }
+
+  const { meta, data } = res
+
+  if (meta.valid) {
     console.log(
-      chalk.green(`License ${license.id} is valid!`)
+      chalk.green(`License ${data.id} is valid!`)
     )
   } else {
     console.log(
-      chalk.red(`License is not valid (${validation.detail})`)
+      chalk.red(`License is not valid (${meta.detail})`)
     )
   }
 }

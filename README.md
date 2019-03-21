@@ -1,7 +1,9 @@
 # Example Validation Caching
 This is an example of caching validation responses locally. This particular
-command line script caches successful validation responses to the filesystem
-for 1 day, making sure a license is validated at most once per-day.
+command line script caches successful validation responses, along with its
+cryptographic signature, to the filesystem for 1 day, making sure a license
+is validated at most once per-day. Storing the cryptographic signature helps
+prevent the cached data from being tampered with.
 
 Feel free to cache to another form of local storage, e.g. registry, etc.
 
@@ -11,6 +13,14 @@ First up, configure a few environment variables:
 ```bash
 # Your Keygen account ID (find yours at https://app.keygen.sh/settings)
 export KEYGEN_ACCOUNT_ID="YOUR_KEYGEN_ACCOUNT_ID"
+
+# Your Keygen account's public key (used to verify signatures)
+export KEYGEN_PUBLIC_KEY=$(printf %b \
+  '-----BEGIN PUBLIC KEY-----\n' \
+  'zdL8BgMFM7p7+FGEGuH1I0KBaMcB/RZZSUu4yTBMu0pJw2EWzr3CrOOiXQI3+6bA\n' \
+  # …
+  'efK41Ml6OwZB3tchqGmpuAsCEwEAaQ==\n' \
+  '-----END PUBLIC KEY-----')
 ```
 
 You can either run each line above within your terminal session before
