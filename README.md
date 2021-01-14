@@ -2,8 +2,9 @@
 This is an example of caching validation responses locally. This particular
 command line script caches successful validation responses, along with its
 cryptographic signature, to the filesystem for 1 day, making sure a license
-is validated at most once per-day. Storing the cryptographic signature helps
-prevent the cached data from being tampered with.
+is validated at most once per-day, and allowing temporary offline license
+validation. Storing the cryptographic signature helps prevent the cached
+data from being tampered with.
 
 Feel free to cache to another form of local storage, e.g. registry, etc.
 
