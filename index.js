@@ -24,13 +24,9 @@ async function getLicenseKeyFromUser() {
 // so there will be a new location for each day. You may want to periodically
 // clean up old cache locations so this doesn't get out of hand.
 function getCurrentCacheLocation(key) {
-  const now = Date.now()
-  const secs = Math.floor(now / 1000)
-  const mins = Math.floor(secs / 60)
-  const hours = Math.floor(mins / 60)
-  const days = Math.floor(hours / 24)
+  const dt = new Date().toDateString()
   const hash = crypto.createHash('sha1')
-                    .update(`${days}:${key}`)
+                    .update(`${dt}:${key}`)
                     .digest('hex')
 
   return `cache/${hash}`
